@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: mysql_itunes
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: itunes_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: always
+    networks:
+      - itunes_network
+
+  app:
+    build: .
+    container_name: itunes_app
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_DATABASE=itunes_db
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=pass
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mysql
+    networks:
+      - itunes_network
+    command: python scripts/main.py
+
+networks:
+  itunes_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
