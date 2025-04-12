@@ -1,8 +1,8 @@
 import os
-import mysql.connector
 import csv
-from lib.currency_rates import get_usd_rate
 import re
+from config.config import get_db_connection
+from lib.currency_rates import get_usd_rate
 
 
 def clean_price(value):
@@ -81,25 +81,31 @@ def process_file(file_path, cursor):
             ))
 
 
-def load_all():
-    conn = mysql.connector.connect(
-        host="localhost",
-        user="test",
-        password="test",
-        database="itunes_db"
-    )
-    cursor = conn.cursor()
+def load_all(data_dir):
+    try:
+        db_conf = get_db_connection()
+        cursor = db_conf.cursor()
 
-    base_dir = os.path.dirname(os.path.dirname(__file__))
-    data_dir = os.path.join(base_dir, 'data')
+        if not os.path.exists(data_dir):
+            print(f"Error: Data directory {data_dir} does not exist!")
+            return
 
-    for file in sorted(os.listdir(data_dir)):
-        if file.endswith('.txt'):
-            process_file(os.path.join(data_dir, file), cursor)
+        files_processed = 0
+        for file_name in os.listdir(data_dir):
+            if file_name.endswith('.csv') or file_name.endswith('.tsv') or file_name.endswith('.txt'):
+                file_path = os.path.join(data_dir, file_name)
+                print(f"📄 Processing: {file_path}")
+                process_file(file_path, cursor)
+                files_processed += 1
 
-    conn.commit()
-    conn.close()
+        if files_processed == 0:
+            print(f"No data files found in {data_dir}")
 
-
-if __name__ == "__main__":
-    load_all()
+        db_conf.commit()
+        print(f"✅ Successfully processed {files_processed} files.")
+    except Exception as e:
+        print(f"❌ Error during load_all: {str(e)}")
+    finally:
+        if 'db_conf' in locals() and db_conf.is_connected():
+            db_conf.close()
+            print("🔌 Database connection closed.")

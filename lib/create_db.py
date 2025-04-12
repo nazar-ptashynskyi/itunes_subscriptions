@@ -1,22 +1,16 @@
-import mysql.connector
+from config.config import get_server_connection, get_db_connection
+
 
 def create_database():
-    root_conn = mysql.connector.connect(
-        host="localhost",
-        user="test",
-        password="test"
-    )
-    root_cursor = root_conn.cursor()
-    root_cursor.execute("CREATE DATABASE IF NOT EXISTS itunes_db")
-    root_conn.close()
+    server_conn = get_server_connection()
+    cursor = server_conn.cursor()
+    cursor.execute("CREATE DATABASE IF NOT EXISTS itunes_db")
+    server_conn.commit()
+    server_conn.close()
 
-    conn = mysql.connector.connect(
-        host="localhost",
-        user="test",
-        password="test",
-        database="itunes_db"
-    )
-    cursor = conn.cursor()
+    db_conf = get_db_connection()
+    cursor = db_conf.cursor()
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS subscriptions (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -49,11 +43,17 @@ def create_database():
             usd_proceeds FLOAT,
             is_trial TINYINT(1),
             is_converted_from_trial TINYINT(1),
-            revenue DECIMAL(10, 2) DEFAULT 0.0
+            revenue DECIMAL(10, 2) DEFAULT 0.0,
+
+            INDEX idx_subscriber_id (subscriber_id(100)),
+            INDEX idx_subscription_apple_id (subscription_apple_id(100)),
+            INDEX idx_is_trial (is_trial),
+            INDEX idx_event_date (event_date)
         );
     """)
-    conn.commit()
-    conn.close()
+    db_conf.commit()
+    db_conf.close()
+
 
 if __name__ == "__main__":
     create_database()

@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 
-CACHE_FILE = 'scripts/.currency_cache.json'
+CACHE_FILE = 'cache/.currency_cache.json'
 os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
 
 if os.path.exists(CACHE_FILE):
@@ -11,6 +11,8 @@ if os.path.exists(CACHE_FILE):
         currency_cache = json.load(f)
 else:
     currency_cache = {}
+
+unsupported_currency_set = set()
 
 SUPPORTED_CURRENCIES = [
     'USD', 'EUR', 'GBP', 'CHF', 'SEK', 'NOK', 'DKK', 'JPY', 'AUD', 'CAD', 'CZK', 'PLN', 'HUF'
@@ -21,14 +23,14 @@ def get_usd_rate(date_str, currency):
         return 1.0, True
 
     if currency not in SUPPORTED_CURRENCIES:
-        print(f"[WARN] Валюта {currency} не підтримується. Використовується курс 1.0")
+        unsupported_currency_set.add(currency)
         return 1.0, False
 
     try:
         dt = datetime.strptime(date_str, "%Y-%m-%d")
         fixed_date = dt.strftime("%Y-%m-%d")
     except:
-        print(f"[WARN] worng data format: {date_str}")
+        print(f"[WARN] Wrong date format: {date_str}")
         return 1.0, False
 
     cache_key = f"{fixed_date}_{currency}"
@@ -50,5 +52,12 @@ def get_usd_rate(date_str, currency):
 
         return rate, True
     except Exception as e:
-        print(f"[WARN] didnt get {currency} : {fixed_date}. Error: {e}")
+        print(f"[WARN] Failed to fetch rate for {currency} on {fixed_date}. Error: {e}")
         return 1.0, False
+
+def print_unsupported_currency_summary():
+    if unsupported_currency_set:
+        print("\n⚠️ Unsupported currencies encountered:")
+        print("   ", ", ".join(sorted(unsupported_currency_set)))
+    else:
+        print("\n✅ No unsupported currencies encountered.")

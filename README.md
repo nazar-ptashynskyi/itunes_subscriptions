@@ -6,7 +6,8 @@ docker-compose up -d
 ```
 
 ## Робота з Python:
-```bash
+
+## Перед початком ввести конфіги в config/config.py або в env
 pip install -r requirements.txt
 python lib/main.py
 

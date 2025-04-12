@@ -1,6 +1,12 @@
 import pandas as pd
 import mysql.connector
 import re
+import os
+
+DB_HOST = os.getenv('DB_HOST', 'mysql')
+DB_USER = os.getenv('DB_USER', 'user')
+DB_PASSWORD = os.getenv('DB_PASSWORD', 'pass')
+DB_NAME = os.getenv('DB_NAME', 'itunes_db')
 
 
 def calculate_revenue_from_subscription_data(df):
@@ -39,30 +45,30 @@ def calculate_revenue(row):
 
 
 def get_subscription_data_from_db():
-    conn = mysql.connector.connect(
-        host="localhost",
-        user="test",
-        password="test",
-        database="itunes_db"
+    db_conf = mysql.connector.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME
     )
     query = "SELECT * FROM subscriptions"
-    cursor = conn.cursor(dictionary=True)
+    cursor = db_conf.cursor(dictionary=True)
     cursor.execute(query)
     rows = cursor.fetchall()
-    conn.close()
+    db_conf.close()
 
     df = pd.DataFrame(rows)
     return df
 
 
 def export_revenue_data_to_db(df):
-    conn = mysql.connector.connect(
-        host="localhost",
-        user="test",
-        password="test",
-        database="itunes_db"
+    db_conf = mysql.connector.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME
     )
-    cursor = conn.cursor()
+    cursor = db_conf.cursor()
 
     for index, row in df.iterrows():
         cursor.execute("""
@@ -71,8 +77,8 @@ def export_revenue_data_to_db(df):
             WHERE id = %s
         """, (row['calculated_revenue'], row['id']))
 
-    conn.commit()
-    conn.close()
+    db_conf.commit()
+    db_conf.close()
 
 
 if __name__ == "__main__":

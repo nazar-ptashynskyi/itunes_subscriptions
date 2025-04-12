@@ -1,49 +1,52 @@
-import mysql.connector
-from datetime import timedelta
+from config.config import get_db_connection
 
 def mark_converted_trials():
-    conn = mysql.connector.connect(
-        host="localhost",
-        user="nazar",
-        password="753357Test@",
-        database="itunes_db"
-    )
-    cursor = conn.cursor()
+    db_conf = get_db_connection()
+    cursor = db_conf.cursor()
 
-    cursor.execute("""
-        SELECT subscriber_id, subscription_apple_id, event_date
-        FROM subscriptions
-        WHERE is_trial = 1
-    """)
-    trials = cursor.fetchall()
+    try:
+        count_query = """
+            SELECT COUNT(*) FROM (
+                SELECT s1.id AS trial_id
+                FROM subscriptions s1
+                JOIN subscriptions s2
+                  ON s1.subscriber_id = s2.subscriber_id
+                 AND s1.subscription_apple_id = s2.subscription_apple_id
+                 AND s1.is_trial = 1
+                 AND s2.is_trial = 0
+                 AND s2.usd_price > 0
+                 AND s2.event_date BETWEEN s1.event_date AND DATE_ADD(s1.event_date, INTERVAL 7 DAY)
+            ) AS t;
+        """
+        cursor.execute(count_query)
+        result = cursor.fetchone()
 
-    for subscriber_id, subscription_id, trial_date in trials:
-        if not subscriber_id or not trial_date:
-            continue
+        update_query = """
+            UPDATE subscriptions AS trial
+            JOIN (
+                SELECT s1.id AS trial_id, s2.id AS paid_id
+                FROM subscriptions s1
+                JOIN subscriptions s2
+                  ON s1.subscriber_id = s2.subscriber_id
+                 AND s1.subscription_apple_id = s2.subscription_apple_id
+                 AND s1.is_trial = 1
+                 AND s2.is_trial = 0
+                 AND s2.usd_price > 0
+                 AND s2.event_date BETWEEN s1.event_date AND DATE_ADD(s1.event_date, INTERVAL 7 DAY)
+            ) AS matched
+            ON trial.id = matched.trial_id
+            SET trial.is_converted_from_trial = 1;
+        """
+        cursor.execute(update_query)
+        db_conf.commit()
 
-        deadline = trial_date + timedelta(days=7)
+    except Exception as e:
+        print(f"❌ error: {str(e)}")
+        db_conf.rollback()
+    finally:
+        cursor.close()
+        db_conf.close()
 
-        cursor.execute("""
-            SELECT id FROM subscriptions
-            WHERE subscriber_id = %s
-              AND subscription_apple_id = %s
-              AND is_trial = 0
-              AND usd_price > 0
-              AND event_date BETWEEN %s AND %s
-            LIMIT 1
-        """, (subscriber_id, subscription_id, trial_date, deadline))
-
-        row = cursor.fetchone()
-        if row:
-            converted_id = row[0]
-            cursor.execute("""
-                UPDATE subscriptions
-                SET is_converted_from_trial = 1
-                WHERE id = %s
-            """, (converted_id,))
-
-    conn.commit()
-    conn.close()
 
 if __name__ == "__main__":
     mark_converted_trials()
